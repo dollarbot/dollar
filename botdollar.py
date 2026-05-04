@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 import threading
 
 # ========== CONFIGURATION ==========
-BOT_TOKEN = "8218058498:AAHB07Nyx2iIawrVO8t95JlzUg54ySjYQ90"
-ADMIN_IDS = [7519636432]
+BOT_TOKEN = "8576468451:AAF2YlAAvgkL_UcXqh7RaYxu2GHH935GcYs"
+ADMIN_IDS = [8694839302]
 # ===================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
