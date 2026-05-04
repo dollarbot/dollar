@@ -13,13 +13,17 @@ import hashlib
 import string
 from datetime import datetime, timedelta
 import threading
+from flask import Flask, request
 
 # ========== CONFIGURATION ==========
 BOT_TOKEN = "8576468451:AAF2YlAAvgkL_UcXqh7RaYxu2GHH935GcYs"
-ADMIN_IDS = [8694839302]
+ADMIN_IDS = [8694839302, 6258211515]
 # ===================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# ========== FLASK APP FOR WEBHOOK ==========
+app = Flask(__name__)
 
 # ========== DATABASE ==========
 token_hash = hashlib.md5(BOT_TOKEN.encode()).hexdigest()[:10]
@@ -893,7 +897,7 @@ def auto_msg_menu(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == "add_auto_msg")
 def add_auto_msg_prompt(call):
-    if not is_admin(call.from.user.id):
+    if not is_admin(call.from_user.id):
         bot.answer_callback_query(call.id, "Unauthorized!")
         return
     bot.send_message(call.message.chat.id, "➕ *ADD AUTO MESSAGE*\n\nSend: `Message | Minutes`\nExample: `Check offers! | 30`\nMinutes 1-1440.", parse_mode="Markdown")
@@ -1206,11 +1210,38 @@ def auto_msg_loop():
             print(f"Auto msg error: {e}")
             time.sleep(60)
 
+# Start auto message loop in background
 threading.Thread(target=auto_msg_loop, daemon=True).start()
 
+# ========== WEBHOOK SERVER ==========
+@app.route(f'/{BOT_TOKEN}', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return 'OK', 200
+    return 'Wrong content type', 400
+
+@app.route('/')
+def index():
+    return "Bot is running!", 200
+
+def set_webhook():
+    bot.remove_webhook()
+    time.sleep(1)
+    # Railway provides the public URL via environment variable
+    public_url = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+    if not public_url:
+        # Fallback for local testing (won't work on Railway)
+        print("⚠️ No RAILWAY_PUBLIC_DOMAIN set. Webhook will not be configured.")
+        return
+    webhook_url = f"https://{public_url}/{BOT_TOKEN}"
+    bot.set_webhook(url=webhook_url)
+    print(f"✅ Webhook set to {webhook_url}")
+
+# ========== RUN ==========
 if __name__ == "__main__":
-    print("🤖 Bot is running...")
-    print(f"Admins: {ADMIN_IDS}")
-    print(f"Database: {DB_NAME}")
-    print("Send /start or /premium to begin")
-    bot.infinity_polling()
+    set_webhook()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
